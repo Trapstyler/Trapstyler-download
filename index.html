@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trapstyler APK Download</title>
+    <style>
+        :root {
+            --bg-color: #0d0e12;
+            --card-bg: #16181d;
+            --accent-purple: #b000ff;
+            --accent-glow: rgba(176, 0, 255, 0.4);
+            --text-main: #ffffff;
+            --text-sub: #94a3b8;
+            --border-glow: rgba(176, 0, 255, 0.2);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            background-image: radial-gradient(circle at 50% 20%, #1f1035 0%, var(--bg-color) 70%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+            color: var(--text-main);
+        }
+
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-glow);
+            border-radius: 30px;
+            padding: 40px 30px;
+            width: 100%;
+            max-width: 380px;
+            text-align: center;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6), 
+                        0 0 30px rgba(176, 0, 255, 0.1);
+        }
+
+        .icon-box {
+            width: 100px;
+            height: 100px;
+            margin: 0 auto 25px;
+            background: linear-gradient(135deg, #1e1335, #121318);
+            border-radius: 25px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: inset 4px 4px 8px rgba(0, 0, 0, 0.5),
+                        inset -4px -4px 8px rgba(45, 30, 70, 0.3);
+            border: 1px solid rgba(176, 0, 255, 0.3);
+        }
+
+        .icon-box svg {
+            width: 50px;
+            height: 50px;
+            fill: var(--accent-purple);
+            filter: drop-shadow(0 0 10px var(--accent-glow));
+        }
+
+        h1 {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            letter-spacing: 0.5px;
+        }
+
+        .version-badge {
+            display: inline-block;
+            background: rgba(176, 0, 255, 0.15);
+            color: #d183ff;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 30px;
+            border: 1px solid rgba(176, 0, 255, 0.3);
+        }
+
+        .download-btn {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            width: 100%;
+            background: var(--accent-purple);
+            color: #ffffff;
+            text-decoration: none;
+            padding: 16px;
+            border-radius: 16px;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 20px var(--accent-glow);
+        }
+
+        .download-btn:hover {
+            background: #c233ff;
+            box-shadow: 0 6px 25px rgba(176, 0, 255, 0.6);
+            transform: translateY(-2px);
+        }
+
+        .download-btn:active {
+            transform: translateY(0);
+        }
+
+        .download-btn svg {
+            width: 20px;
+            height: 20px;
+            fill: #ffffff;
+        }
+
+        .footer-note {
+            margin-top: 20px;
+            font-size: 12px;
+            color: var(--text-sub);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="card">
+        <div class="icon-box">
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path d="M17.523 15.3414c-.5511 0-.9993-.4486-.9993-.9997s.4482-.9993.9993-.9993c.5511 0 .9993.4482.9993.9993.0004.5511-.4482.9997-.9993.9997m-11.046 0c-.5511 0-.9993-.4486-.9993-.9997s.4482-.9993.9993-.9993c.5511 0 .9993.4482.9993.9993 0 .5511-.4482.9997-.9993.9997m11.4045-6.02l1.9973-3.4592a.416.416 0 00-.1521-.5676.416.416 0 00-.5676.1521l-2.0223 3.503C15.5902 8.2439 13.8533 7.8508 12 7.8508s-3.5902.3931-5.1367 1.0989L4.841 5.4467a.4161.4161 0 00-.5677-.1521.4157.4157 0 00-.1521.5676l1.9973 3.4592C2.6889 11.1867.3432 14.6589 0 18.761h24c-.3435-4.1021-2.6892-7.5743-6.1185-9.4396"/>
+            </svg>
+        </div>
+
+        <h1>Trapstyler App</h1>
+        <div class="version-badge">v1.0.0 • Production</div>
+
+        <a href="./trapstyler.apk" class="download-btn" download>
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
+            </svg>
+            Download APK
+        </a>
+
+        <div class="footer-note">Secure Direct Download</div>
+    </div>
+
+</body>
+</html>
