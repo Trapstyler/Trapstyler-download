@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Trapstyler APK Download</title>
+    <title>Trapstyler App - Secure Download</title>
     <style>
         :root {
             --bg-color: #0d0e12;
@@ -81,8 +81,35 @@
             border-radius: 20px;
             font-size: 12px;
             font-weight: 600;
-            margin-bottom: 30px;
+            margin-bottom: 25px;
             border: 1px solid rgba(176, 0, 255, 0.3);
+        }
+
+        /* Progress Bar Styles */
+        .progress-container {
+            display: none;
+            width: 100%;
+            background: #1e222a;
+            border-radius: 12px;
+            overflow: hidden;
+            height: 14px;
+            margin-bottom: 15px;
+            border: 1px solid rgba(176, 0, 255, 0.2);
+        }
+
+        .progress-bar {
+            width: 0%;
+            height: 100%;
+            background: var(--accent-purple);
+            box-shadow: 0 0 10px var(--accent-glow);
+            transition: width 0.1s linear;
+        }
+
+        .status-text {
+            font-size: 13px;
+            color: var(--text-sub);
+            margin-bottom: 20px;
+            min-height: 18px;
         }
 
         .download-btn {
@@ -98,8 +125,10 @@
             border-radius: 16px;
             font-size: 16px;
             font-weight: 600;
+            border: none;
             transition: all 0.2s ease;
             box-shadow: 0 4px 20px var(--accent-glow);
+            cursor: pointer;
         }
 
         .download-btn:hover {
@@ -110,6 +139,14 @@
 
         .download-btn:active {
             transform: translateY(0);
+        }
+
+        .download-btn:disabled {
+            background: #333842;
+            color: #64748b;
+            box-shadow: none;
+            cursor: not-allowed;
+            transform: none;
         }
 
         .download-btn svg {
@@ -137,15 +174,100 @@
         <h1>Trapstyler App</h1>
         <div class="version-badge">v1.0.0 • Production</div>
 
-        <a href="./trapstyler.apk" class="download-btn" download>
+        <!-- Progress Elements -->
+        <div class="progress-container" id="progressContainer">
+            <div class="progress-bar" id="progressBar"></div>
+        </div>
+        <div class="status-text" id="statusText">Ready to download (137 MB)</div>
+
+        <button id="downloadBtn" class="download-btn" onclick="startDownload()">
             <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                 <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
             </svg>
             Download APK
-        </a>
+        </button>
 
-        <div class="footer-note">Secure Direct Download</div>
+        <div class="footer-note">Secure Direct Stream</div>
     </div>
 
+    <script>
+        // Request browser notification permissions upfront
+        if ("Notification" in window && Notification.permission !== "granted") {
+            Notification.requestPermission();
+        }
+
+        async function startDownload() {
+            // File.kiwi Direct Link embedded here
+            const fileUrl = "https://file.kiwi/ecde2550#Z5OYUcVGDw0GcIsMgvRuXw";
+            const btn = document.getElementById("downloadBtn");
+            const progressContainer = document.getElementById("progressContainer");
+            const progressBar = document.getElementById("progressBar");
+            const statusText = document.getElementById("statusText");
+
+            btn.disabled = true;
+            progressContainer.style.display = "block";
+            statusText.innerText = "Connecting to secure stream...";
+
+            try {
+                const response = await fetch(fileUrl);
+                if (!response.ok) throw new Error("Network response failed");
+
+                const contentLength = response.headers.get("content-length");
+                const total = contentLength ? parseInt(contentLength, 10) : 143654765; // fallback ~137MB
+                let loaded = 0;
+
+                const reader = response.body.getReader();
+                const chunks = [];
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    chunks.push(value);
+                    loaded += value.length;
+
+                    const percent = Math.round((loaded / total) * 100);
+                    const loadedMB = (loaded / (1024 * 1024)).toFixed(1);
+                    const totalMB = (total / (1024 * 1024)).toFixed(1);
+
+                    // Update UI
+                    progressBar.style.width = percent + "%";
+                    statusText.innerText = `Downloading: ${loadedMB} MB / ${totalMB} MB (${percent}%)`;
+                    document.title = `(${percent}%) Downloading Trapstyler...`;
+                }
+
+                // Compile blob and trigger download locally without opening new page
+                const blob = new Blob(chunks);
+                const blobUrl = window.URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = blobUrl;
+                a.download = "trapstyler.apk";
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                window.URL.revokeObjectURL(blobUrl);
+
+                // Success UI & Notification
+                statusText.innerText = "Download complete!";
+                document.title = "Trapstyler APK - Download Complete";
+                btn.disabled = false;
+                btn.innerText = "Downloaded ✓";
+
+                if ("Notification" in window && Notification.permission === "granted") {
+                    new Notification("Trapstyler Downloaded!", {
+                        body: "Your 137MB APK has finished downloading successfully.",
+                        icon: ""
+                    });
+                }
+
+            } catch (err) {
+                console.error(err);
+                statusText.innerText = "Download error. Fallback opening link...";
+                document.title = "Download Error - Trapstyler";
+                window.location.href = fileUrl; // Fallback redirect if CORS blocks fetch stream
+                btn.disabled = false;
+            }
+        }
+    </script>
 </body>
 </html>
