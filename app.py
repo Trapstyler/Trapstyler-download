@@ -1,10 +1,11 @@
+```python
 #!/usr/bin/env python3
 """
 Musick backend — endpoint-only (youtubei / vimeo config / lrclib). No yt-dlp.
 Run:  python app.py
 Deps: pip install flask requests
 """
-import os, re, json, time, threading, urllib.parse, mimetypes, subprocess
+import os, re, json, time, threading, urllib.parse, mimetypes
 from pathlib import Path
 
 import requests
@@ -15,23 +16,31 @@ BASE_DIR     = Path(__file__).parent.resolve()
 DOWNLOAD_DIR = Path(os.environ.get("DOWNLOAD_DIR", str(BASE_DIR / "downloads"))).resolve()
 DOWNLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
-UA_MOBILE = "com.google.android.youtube/19.09.37 (Linux; U; Android 11) gzip"
-UA_WEB    = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-             "(KHTML, like Gecko) Chrome/120.0 Safari/537.36")
+UA_MOBILE  = "com.google.android.youtube/19.29.37 (Linux; U; Android 11) gzip"
+UA_ANDROID_VR = "com.google.android.apps.youtube.vr.oculus/1.56.21 (Linux; U; Android 12L; Quest 3 Build/SQ3A.220605.009.A1) gzip"
+UA_IOS     = "com.google.ios.youtube/19.29.1 (iPhone16,2; U; CPU iOS 17_5_1 like Mac OS X;)"
+UA_WEB     = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+              "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36")
 INNERTUBE_KEY = "AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8"
 
 CLIENTS = [
-    {"name": "ANDROID", "ver": "19.09.37", "ua": UA_MOBILE,
-     "ctx": {"client": {"clientName": "ANDROID", "clientVersion": "19.09.37",
+    {"name": "ANDROID_VR", "id": "28", "ver": "1.56.21", "ua": UA_ANDROID_VR,
+     "ctx": {"client": {"clientName": "ANDROID_VR", "clientVersion": "1.56.21",
+                        "deviceMake": "Oculus", "deviceModel": "Quest 3",
+                        "osName": "Android", "osVersion": "12L",
+                        "androidSdkVersion": 32, "hl": "en", "gl": "US"}}},
+    {"name": "IOS", "id": "5", "ver": "19.29.1", "ua": UA_IOS,
+     "ctx": {"client": {"clientName": "IOS", "clientVersion": "19.29.1",
+                        "deviceMake": "Apple", "deviceModel": "iPhone16,2",
+                        "osName": "iOS", "osVersion": "17.5.1.21F90",
+                        "hl": "en", "gl": "US"}}},
+    {"name": "ANDROID", "id": "3", "ver": "19.29.37", "ua": UA_MOBILE,
+     "ctx": {"client": {"clientName": "ANDROID", "clientVersion": "19.29.37",
                         "androidSdkVersion": 30, "hl": "en", "gl": "US"}}},
-    {"name": "IOS", "ver": "19.09.3",
-     "ua": "com.google.ios.youtube/19.09.3 (iPhone14,3; U; CPU iOS 15_6 like Mac OS X)",
-     "ctx": {"client": {"clientName": "IOS", "clientVersion": "19.09.3",
-                        "deviceModel": "iPhone14,3", "hl": "en", "gl": "US"}}},
-    {"name": "WEB_REMIX", "ver": "1.20250317.01.00", "ua": UA_WEB,
+    {"name": "WEB_REMIX", "id": "67", "ver": "1.20250317.01.00", "ua": UA_WEB,
      "ctx": {"client": {"clientName": "WEB_REMIX", "clientVersion": "1.20250317.01.00",
                         "platform": "DESKTOP", "hl": "en", "gl": "US"}}},
-    {"name": "WEB", "ver": "2.20240726.00.00", "ua": UA_WEB,
+    {"name": "WEB", "id": "1", "ver": "2.20240726.00.00", "ua": UA_WEB,
      "ctx": {"client": {"clientName": "WEB", "clientVersion": "2.20240726.00.00",
                         "hl": "en", "gl": "US"}}},
 ]
@@ -76,19 +85,33 @@ def _parse_views(s: str) -> int:
     mult = {"K": 1e3, "M": 1e6, "B": 1e9}.get(m.group(2) or "", 1)
     return int(n * mult)
 
+def _upgrade_thumb(raw_url: str, vid: str = None) -> str:
+    """Upgrade low-res YouTube thumbnails (60x60 / 120x90) to crisp HD artwork."""
+    if raw_url:
+        # Upgrade Google/YTM square thumbnails (=w60-h60-... -> =w544-h544-...)
+        upgraded = re.sub(r"=w\d+-h\d+([^&\s]*)", r"=w544-h544\1", raw_url)
+        # Upgrade standard ytimg low-res paths
+        upgraded = re.sub(r"/(default|mqdefault|sddefault)\.(jpg|webp)", r"/hqdefault.\2", upgraded)
+        if upgraded != raw_url:
+            return upgraded
+    if vid:
+        return f"https://i.ytimg.com/vi/{vid}/hqdefault.jpg"
+    return raw_url or ""
+
 # ---------------------------------------------------------------------------
-# YouTube Music search  (mirrors s_web)
+# YouTube Music search
 # ---------------------------------------------------------------------------
 def _ytm_search(query: str, limit: int) -> list:
+    web_remix = next(c for c in CLIENTS if c["name"] == "WEB_REMIX")
     body = {
         "query":   query,
         "params":  "Eg-KAQwIARAAGAAgACgAMABqChAEEAUQAxAKEAk%3D",
-        "context": CLIENTS[2]["ctx"],
+        "context": web_remix["ctx"],
     }
     url = f"https://music.youtube.com/youtubei/v1/search?key={INNERTUBE_KEY}&prettyPrint=false"
-    headers = {"User-Agent": CLIENTS[2]["ua"], "Content-Type": "application/json",
-               "X-YouTube-Client-Name": "67",
-               "X-YouTube-Client-Version": CLIENTS[2]["ver"],
+    headers = {"User-Agent": web_remix["ua"], "Content-Type": "application/json",
+               "X-YouTube-Client-Name": web_remix["id"],
+               "X-YouTube-Client-Version": web_remix["ver"],
                "Origin": "https://music.youtube.com",
                "Referer": "https://music.youtube.com/"}
     last_err = None; r = None
@@ -101,9 +124,13 @@ def _ytm_search(query: str, limit: int) -> list:
             last_err = e; time.sleep(0.5 * (attempt + 1)); continue
         except requests.HTTPError as e:
             last_err = e; break
-    if r is None:
-        raise RuntimeError(f"YTM unreachable: {last_err}")
-    data = r.json()
+    if r is None or not r.text.strip():
+        return _yt_plain_search(query, limit)
+
+    try:
+        data = r.json()
+    except Exception:
+        return _yt_plain_search(query, limit)
 
     items = []
     try:
@@ -125,8 +152,10 @@ def _ytm_search(query: str, limit: int) -> list:
             views    = ""
             if len(cols) > 2:
                 views = cols[2]["musicResponsiveListItemFlexColumnRenderer"]["text"]["runs"][0]["text"]
-            cover = r0["thumbnail"]["musicThumbnailRenderer"]["thumbnail"]["thumbnails"][0]["url"]
+            thumbs = r0["thumbnail"]["musicThumbnailRenderer"]["thumbnail"]["thumbnails"]
+            raw_cover = thumbs[-1]["url"] if thumbs else ""
             vid   = r0["playlistItemData"]["videoId"]
+            cover = _upgrade_thumb(raw_cover, vid)
             items.append({
                 "id": vid, "title": title, "channel": artist,
                 "duration": _parse_duration(duration),
@@ -139,19 +168,16 @@ def _ytm_search(query: str, limit: int) -> list:
         if len(items) >= limit: break
     return items
 
-# ---------------------------------------------------------------------------
-# YouTube player  (mirrors p_web adaptiveFormats)
-# ---------------------------------------------------------------------------
-
 def _yt_plain_search(query: str, limit: int) -> list:
     """Fallback: plain youtubei search with WEB client."""
-    body = {"query": query, "context": CLIENTS[3]["ctx"]}
+    web_client = next(c for c in CLIENTS if c["name"] == "WEB")
+    body = {"query": query, "context": web_client["ctx"]}
     r = requests.post(
         f"https://www.youtube.com/youtubei/v1/search?key={INNERTUBE_KEY}&prettyPrint=false",
         json=body, timeout=(5, 20),
-        headers={"User-Agent": CLIENTS[3]["ua"], "Content-Type": "application/json",
-                 "X-YouTube-Client-Name": "1",
-                 "X-YouTube-Client-Version": CLIENTS[3]["ver"],
+        headers={"User-Agent": web_client["ua"], "Content-Type": "application/json",
+                 "X-YouTube-Client-Name": web_client["id"],
+                 "X-YouTube-Client-Version": web_client["ver"],
                  "Origin": "https://www.youtube.com",
                  "Referer": "https://www.youtube.com/"},
     )
@@ -168,14 +194,16 @@ def _yt_plain_search(query: str, limit: int) -> list:
             v = vr.get("videoRenderer")
             if not v: continue
             try:
+                vid = v["videoId"]
+                raw_thumb = (v.get("thumbnail", {}).get("thumbnails") or [{}])[-1].get("url", "")
                 items.append({
-                    "id": v["videoId"],
-                    "url": f"https://www.youtube.com/watch?v={v['videoId']}",
+                    "id": vid,
+                    "url": f"https://www.youtube.com/watch?v={vid}",
                     "title": v["title"]["runs"][0]["text"],
                     "channel": (v.get("ownerText", {}).get("runs") or [{}])[0].get("text", ""),
                     "duration": _parse_duration(v.get("lengthText", {}).get("simpleText", "")),
                     "view_count": _parse_views(v.get("viewCountText", {}).get("simpleText", "")),
-                    "thumbnail": (v.get("thumbnail", {}).get("thumbnails") or [{}])[-1].get("url"),
+                    "thumbnail": _upgrade_thumb(raw_thumb, vid),
                 })
             except (KeyError, IndexError):
                 continue
@@ -183,27 +211,48 @@ def _yt_plain_search(query: str, limit: int) -> list:
         if len(items) >= limit: break
     return items
 
+# ---------------------------------------------------------------------------
+# YouTube player (Fixed numeric Client-Name IDs + safe JSON parsing)
+# ---------------------------------------------------------------------------
 def _yt_player(video_id: str) -> dict:
     last_err = None
     for c in CLIENTS:
-        if c["name"] == "WEB_REMIX": continue
-        body = {"videoId": video_id, "context": c["ctx"],
-                "contentCheckOk": True, "racyCheckOk": True}
+        if c["name"] in ("WEB_REMIX", "WEB"):
+            continue
+        body = {
+            "videoId": video_id,
+            "context": c["ctx"],
+            "contentCheckOk": True,
+            "racyCheckOk": True
+        }
         try:
             r = requests.post(
                 f"https://www.youtube.com/youtubei/v1/player?key={INNERTUBE_KEY}&prettyPrint=false",
-                json=body, timeout=20,
-                headers={"User-Agent": c["ua"], "Content-Type": "application/json",
-                         "X-YouTube-Client-Name": c["name"],
-                         "X-YouTube-Client-Version": c["ver"],
-                         "Origin": "https://www.youtube.com",
-                         "Referer": "https://www.youtube.com/"},
+                json=body,
+                timeout=20,
+                headers={
+                    "User-Agent": c["ua"],
+                    "Content-Type": "application/json",
+                    "Accept": "application/json",
+                    "X-YouTube-Client-Name": c["id"],
+                    "X-YouTube-Client-Version": c["ver"],
+                },
             )
-            d = r.json()
-            if d.get("streamingData"): return d
-            last_err = d.get("playabilityStatus", {}).get("reason") or "no streamingData"
+            if not r.text or not r.text.strip():
+                last_err = f"{c['name']}: empty response (HTTP {r.status_code})"
+                continue
+            try:
+                d = r.json()
+            except ValueError:
+                last_err = f"{c['name']}: non-JSON response (HTTP {r.status_code})"
+                continue
+
+            if d.get("streamingData"):
+                return d
+            status_obj = d.get("playabilityStatus", {})
+            last_err = status_obj.get("reason") or status_obj.get("status") or f"{c['name']}: no streamingData"
         except Exception as e:
-            last_err = str(e)
+            last_err = f"{c['name']}: {e}"
     raise RuntimeError(f"YouTube player failed: {last_err}")
 
 def _pick_formats(player: dict):
@@ -232,7 +281,7 @@ def _pick_formats(player: dict):
     return audio, video
 
 # ---------------------------------------------------------------------------
-# Vimeo config  (mirrors p_web parseMasterJSON)
+# Vimeo config
 # ---------------------------------------------------------------------------
 def _vimeo_config(vid: str) -> dict:
     url = f"https://player.vimeo.com/video/{vid}/config"
@@ -313,12 +362,13 @@ def api_search():
             try:
                 pl = _yt_player(vid)
                 vd = pl.get("videoDetails", {})
+                raw_t = (vd.get("thumbnail", {}).get("thumbnails") or [{}])[-1].get("url", "")
                 return jsonify({"results": [{
                     "id": vid, "url": f"https://www.youtube.com/watch?v={vid}",
                     "title": vd.get("title"), "channel": vd.get("author"),
                     "duration": int(vd.get("lengthSeconds") or 0),
                     "view_count": int(vd.get("viewCount") or 0),
-                    "thumbnail": (vd.get("thumbnail", {}).get("thumbnails") or [{}])[-1].get("url"),
+                    "thumbnail": _upgrade_thumb(raw_t, vid),
                 }]})
             except Exception as e:
                 return jsonify({"results": [], "error": str(e)}), 500
@@ -369,6 +419,7 @@ def api_resolve():
         audio, video = _pick_formats(pl)
         best_a = audio[0] if audio else None
         best_v = video[0] if video else None
+        raw_t = (vd.get("thumbnail", {}).get("thumbnails") or [{}])[-1].get("url", "")
 
         formats = []
         for a in audio:
@@ -383,7 +434,7 @@ def api_resolve():
                 "id": vid, "title": vd.get("title"),
                 "duration": int(vd.get("lengthSeconds") or 0),
                 "channel": vd.get("author"),
-                "thumbnail": (vd.get("thumbnail", {}).get("thumbnails") or [{}])[-1].get("url"),
+                "thumbnail": _upgrade_thumb(raw_t, vid),
             },
             "stream_url": _proxy((best_v or best_a or {}).get("url", "")),
             "audio_url":  _proxy(best_a["url"]) if best_a else None,
@@ -429,7 +480,7 @@ def api_lyrics():
 def api_proxy():
     target = request.args.get("url")
     if not target: return "missing url", 400
-    h = {"User-Agent": UA_MOBILE, "Referer": "https://www.youtube.com/"}
+    h = {"User-Agent": UA_ANDROID_VR}
     if request.headers.get("Range"): h["Range"] = request.headers["Range"]
     try:
         up = requests.get(target, headers=h, stream=True, timeout=30)
@@ -467,7 +518,7 @@ def api_hls():
     return Response("\n".join(out), mimetype="application/vnd.apple.mpegurl")
 
 # ---------------------------------------------------------------------------
-# Background download (server-side GET of the resolved URL → file)
+# Background download
 # ---------------------------------------------------------------------------
 @app.post("/api/download")
 def api_download():
@@ -487,14 +538,9 @@ def api_download():
     return jsonify({"job": JOBS[job_id]})
 
 def _run_download(job_id, page_url, title, mode):
-    """
-    Resolve page_url → get a direct media URL (YT/Vimeo) → stream to disk.
-    For audio mode, ask resolve for the best audio format; for video, best video.
-    """
     try:
         with JOBS_LOCK: JOBS[job_id]["status"] = "starting"
 
-        # resolve first
         if re.search(r"vimeo\.com", page_url):
             vid = _vimeo_id(page_url)
             data = _vimeo_extract(_vimeo_config(vid), vid)
@@ -518,7 +564,7 @@ def _run_download(job_id, page_url, title, mode):
         dest = DOWNLOAD_DIR / f"{safe}.{ext}"
 
         with JOBS_LOCK: JOBS[job_id]["status"] = "downloading"
-        h = {"User-Agent": UA_MOBILE}
+        h = {"User-Agent": UA_ANDROID_VR}
         with requests.get(direct, headers=h, stream=True, timeout=60) as r:
             r.raise_for_status()
             total = int(r.headers.get("Content-Length") or 0)
@@ -585,7 +631,6 @@ def api_file(name):
 
 @app.get("/api/files")
 def api_files():
-    """List downloaded files (the bridge's 'folder' endpoint)."""
     items = []
     for p in sorted(DOWNLOAD_DIR.iterdir(), key=lambda x: x.stat().st_mtime, reverse=True):
         if not p.is_file(): continue
@@ -619,3 +664,4 @@ if __name__ == "__main__":
     print(f"→ http://127.0.0.1:{PORT}")
     print(f"→ downloads: {DOWNLOAD_DIR}")
     app.run(host="0.0.0.0", port=PORT, threaded=True)
+```
